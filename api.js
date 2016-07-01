@@ -32,19 +32,27 @@ function do_connect(socket, db) {
   socket.on('message', function(msg) {
     var rpc = JSON.parse(msg)
     console.log('<-ws '+ JSON.stringify(rpc))
+  //exchange: 'poloniex',
+  //market: { base: 'XMR', quote: 'XDN' },
 
     if (rpc.method == "orderbook") {
+      let now = new Date()
+      let base = rpc.params.base.toUpperCase()
+      let quote = rpc.params.quote.toUpperCase()
+      let days = parseInt(rpc.params.days)
+      let early = [base, quote, new Date(now-1000*60*60*24*days)]
+      let late = [base, quote, now]
       return rethinkdb
       .table('orderbooks')
-      .orderBy({index: rethinkdb.desc('date')})
-      .limit(1)
+      .orderBy({index: rethinkdb.desc('base-quote-date')})
+      .between(early, late)
       .run(db)
       .then(function(cursor){
         cursor
         .toArray()
         .then(function(books){
           let book = books[0]
-          console.log(rpc.method, rpc.params, '->', book.date, book.market)
+          console.log(rpc.method, rpc.params, '->', books)
           socket.send(JSON.stringify(book))
         })
       })
