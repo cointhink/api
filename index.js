@@ -49,11 +49,8 @@ function do_connect(socket, db) {
       .run(db)
       .then(function(cursor){
         cursor
-        .toArray()
-        .then(function(books){
-          let book = books[0]
-          console.log(rpc.method, rpc.params, '->', books)
-          socket.send(JSON.stringify(book))
+        .each(function(book){
+          obsend('orderbook', book)
         })
       })
     }
@@ -64,13 +61,16 @@ function do_connect(socket, db) {
       .run(db)
       .then(function(cursor){
         cursor
-        .toArray()
-        .then(function(exchanges){
-          exchanges = exchanges.map(function(ex){return {name: ex.id}})
-          console.log(rpc.method, '->', exchanges)
-          socket.send(JSON.stringify(exchanges))
+        .each(function(exchange){
+          obsend('exchange', exchange)
         })
       })
+    }
+
+    function obsend(type, object) {
+      let obj = { type: type, object: object}
+      console.log(rpc.method, rpc.params, '->', obj)
+      socket.send(JSON.stringify(obj))
     }
   })
 
