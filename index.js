@@ -50,6 +50,8 @@ function do_connect(socket, db) {
       .then(function(cursor){
         cursor
         .each(function(err, book){
+          book.asks = [ book.asks[0] ]
+          book.bids = [ book.bids[0] ]
           obsend('orderbook', book)
         })
       })
@@ -69,7 +71,7 @@ function do_connect(socket, db) {
 
     function obsend(type, object) {
       let obj = { type: type, object: object}
-      console.log(rpc.method, rpc.params, '->', obj)
+      console.log(rpc.method, rpc.params, '->', JSON.stringify(obj, null, 2))
       socket.send(JSON.stringify(obj))
     }
   })
