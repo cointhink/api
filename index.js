@@ -49,7 +49,7 @@ function do_connect(socket, db) {
       .run(db)
       .then(function(cursor){
         cursor
-        .each(function(book){
+        .each(function(err, book){
           obsend('orderbook', book)
         })
       })
@@ -61,7 +61,7 @@ function do_connect(socket, db) {
       .run(db)
       .then(function(cursor){
         cursor
-        .each(function(exchange){
+        .each(function(err, exchange){
           obsend('exchange', exchange)
         })
       })
