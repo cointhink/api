@@ -39,8 +39,8 @@ function do_connect(socket, db) {
       let now = new Date()
       let base = rpc.params.base.toUpperCase()
       let quote = rpc.params.quote.toUpperCase()
-      let days = parseInt(rpc.params.days)
-      let early = [base, quote, new Date(now-1000*60*60*24*days)]
+      let hours = parseInt(rpc.params.hours)
+      let early = [base, quote, new Date(now-1000*60*60*hours)]
       let late = [base, quote, now]
       return rethinkdb
       .table('orderbooks')
