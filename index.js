@@ -4,6 +4,7 @@ let fs = require('fs')
 let websock = require('websock')
 let Hjson= require('hjson')
 let rethinkdb = require('rethinkdb')
+let moment = require('moment')
 
 //var config = Hjson.parse(fs.readFileSync('./config.hjson'))
 let config = JSON.parse(fs.readFileSync('./config.hjson'))
@@ -66,22 +67,34 @@ function do_connect(socket, db) {
         .table('exchanges')
         .run(db)
         .then(function(cursor){
-          cursor
-          .each(function(err, exchange){
-            return rethinkdb
-            .table('orderbooks')
-            .orderBy({index: rethinkdb.desc('exchange-date')})
-            .between([exchange.id, new Date(0)], [exchange.id, new Date()])
-            .limit(1)
-            .run(db)
-            .then(function(cursor){
-              cursor
-              .each(function(err, lastbook){
-                let exchangeStat = {exchange: exchange.id, lastQuote: lastbook.date}
-                obsend('exchange', exchangeStat)
-              })
-            })
+          return cursor
+          .toArray()
+          .then(function(exchanges){
+            return Promise.all(exchanges.map(function(exchange){
+              console.log('l1', exchange.id)
+              return rethinkdb
+                .table('orderbooks')
+                .orderBy({index: rethinkdb.desc('exchange-date')})
+                .between([exchange.id, moment().subtract(15, 'seconds').toDate()],
+                         [exchange.id, moment().toDate()])
+                .run(db)
+                .then(function(cursor){
+                  return cursor
+                    .toArray()
+                    .then(function(lastbooks){
+                      console.log(exchange.id, 'books', lastbooks.length)
+                      let stat = {exchange: exchange.id, markets: [] }
+                      lastbooks.forEach(function(book){
+                        stat.markets.push(book.market)
+                      })
+                      return stat
+                    })
+                 })
+            }))
           })
+        })
+        .then(function(exchanges){
+          obsend('exchanges', exchanges)
         })
       }
 

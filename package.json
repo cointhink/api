@@ -2,6 +2,7 @@
   "name": "cointhink-api",
   "dependencies": {
     "hjson": "^1.8.4",
+    "moment": "^2.14.1",
     "rethinkdb": "^2.3.2",
     "websock": "^0.3.19"
   }
