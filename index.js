@@ -45,21 +45,27 @@ function do_connect(socket, db) {
         let base = rpc.params.base.toUpperCase()
         let quote = rpc.params.quote.toUpperCase()
         let hours = parseInt(rpc.params.hours)
-        let early = [base, quote, new Date(now-1000*60*60*hours)]
-        let late = [base, quote, now]
-        return rethinkdb
-        .table('orderbooks')
-        .orderBy({index: rethinkdb.desc('base-quote-date')})
-        .between(early, late)
-        .run(db)
-        .then(function(cursor){
-          cursor
-          .each(function(err, book){
-            book.asks = [ book.asks[0] ]
-            book.bids = [ book.bids[0] ]
-            obsend('orderbook', book)
+
+        sendBooks(base, quote, 1000*60*60*hours)
+        sendBooks(quote, base, 1000*60*60*hours)
+
+        function sendBooks(base, quote, duration) {
+          let early = [base, quote, new Date(now-duration)]
+          let late = [base, quote, now]
+          rethinkdb
+          .table('orderbooks')
+          .orderBy({index: rethinkdb.desc('base-quote-date')})
+          .between(early, late)
+          .run(db)
+          .then(function(cursor){
+            cursor
+            .each(function(err, book){
+              book.asks = [ book.asks[0] ]
+              book.bids = [ book.bids[0] ]
+              obsend('orderbook', book)
+            })
           })
-        })
+        }
       }
 
       if (rpc.method == "exchanges") {
@@ -77,7 +83,6 @@ function do_connect(socket, db) {
                   .toArray()
                   .then(function(lastbooks){
                     let stat = {id: exchange.id, markets: [] }
-                    console.log('lastbooks', exchange.id, lastbooks)
                     if (lastbooks.length > 0) {
                       let lastDate = lastbooks[0].date
                       stat.date = lastDate
@@ -125,7 +130,7 @@ function do_connect(socket, db) {
 
       function obsend(type, object) {
         let obj = { type: type, object: object}
-        console.log(rpc.method, rpc.params, '->', JSON.stringify(obj, null, 2))
+        //console.log(rpc.method, rpc.params, '->', JSON.stringify(obj, null, 2))
         socket.send(JSON.stringify(obj))
       }
     }
