@@ -68,47 +68,45 @@ function do_connect(socket, db) {
         .run(db)
         .then(function(cursor){
           return cursor
-          .toArray()
-          .then(function(exchanges){
-            return Promise.all(exchanges.map(function(exchange){
-              console.log('exchange', exchange.id)
-              return lastOrderbook(exchange)
-                .run(db)
-                .then(function(cursor){
-                  return cursor
-                    .toArray()
-                    .then(function(lastbooks){
-                      let stat = {exchange: exchange.id, markets: [] }
-                      console.log('lastbooks', exchange.id, lastbooks)
-                      if (lastbooks.length > 0) {
-                        let lastDate = lastbooks[0].date
-                        stat.date = lastDate
-                        console.log('lastDate', exchange.id, lastDate)
-                        return marketCluster(exchange,
-                                             moment(lastDate).subtract(45, 'seconds').toDate(),
-                                             new Date())
-                          .run(db)
-                          .then(function(cursor){
-                            return cursor
-                              .toArray()
-                              .then(function(lastbooks){
-                                console.log(exchange.id, 'books', lastbooks.length)
-                                lastbooks.forEach(function(book){
-                                  stat.markets.push(book.market)
-                                })
-                                return stat
+          .each(function(err,exchange){
+            console.log('exchange', exchange.id)
+            return lastOrderbook(exchange)
+              .run(db)
+              .then(function(cursor){
+                return cursor
+                  .toArray()
+                  .then(function(lastbooks){
+                    let stat = {exchange: exchange.id, markets: [] }
+                    console.log('lastbooks', exchange.id, lastbooks)
+                    if (lastbooks.length > 0) {
+                      let lastDate = lastbooks[0].date
+                      stat.date = lastDate
+                      console.log('lastDate', exchange.id, lastDate)
+                      return marketCluster(exchange,
+                                           moment(lastDate).subtract(45, 'seconds').toDate(),
+                                           new Date())
+                        .run(db)
+                        .then(function(cursor){
+                          return cursor
+                            .toArray()
+                            .then(function(lastbooks){
+                              console.log(exchange.id, 'books', lastbooks.length)
+                              lastbooks.forEach(function(book){
+                                stat.markets.push(book.market)
                               })
-                          })
-                      } else {
-                        return stat
-                      }
-                  })
+                              return stat
+                            })
+                        })
+                    } else {
+                      return stat
+                    }
+                })
               })
-            }))
+              .then(function(exchanges){
+                obsend('exchange', exchanges)
+              })
+
           })
-        })
-        .then(function(exchanges){
-          obsend('exchanges', exchanges)
         })
       }
 
