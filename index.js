@@ -76,7 +76,7 @@ function do_connect(socket, db) {
                 return cursor
                   .toArray()
                   .then(function(lastbooks){
-                    let stat = {exchange: exchange.id, markets: [] }
+                    let stat = {id: exchange.id, markets: [] }
                     console.log('lastbooks', exchange.id, lastbooks)
                     if (lastbooks.length > 0) {
                       let lastDate = lastbooks[0].date
