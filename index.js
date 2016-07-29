@@ -46,19 +46,7 @@ function do_connect(socket, db) {
         let quote = rpc.params.quote.toUpperCase()
         let hours = parseInt(rpc.params.hours)
 
-        sendBothBooks(base, quote, 1000*60*60*hours)
-
-        if(base === 'USDT') {
-          sendBothBooks('USD', quote, 1000*60*60*hours)
-        }
-        if(quote === 'USDT') {
-          sendBothBooks(base, 'USD', 1000*60*60*hours)
-        }
-
-        function sendBothBooks(base, quote, duration) {
-          sendBooks(base, quote, duration)
-          sendBooks(quote, base, duration)
-        }
+        sendBooks(base, quote, 1000*60*60*hours)
 
         function sendBooks(base, quote, duration) {
           let early = [base, quote, new Date(now-duration)]
@@ -74,6 +62,7 @@ function do_connect(socket, db) {
               book.asks = [ book.asks[0] ]
               book.bids = [ book.bids[0] ]
               obsend('orderbook', book)
+              console.log('orderbook', book.exchange, book.market.base, book.market.quote, book.asks, book.bids)
             })
           })
         }
