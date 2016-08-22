@@ -44,7 +44,7 @@ function do_connect(socket, db) {
         let now = new Date()
         let base = rpc.params.base.toUpperCase()
         let quote = rpc.params.quote.toUpperCase()
-        let hours = parseInt(rpc.params.hours)
+        let hours = parseFloat(rpc.params.hours)
 
         sendBooks(base, quote, 1000*60*60*hours)
 
