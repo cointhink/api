@@ -11,24 +11,24 @@ let moment = require('moment')
 // local
 let db = require('./lib/db')
 
-//var config = Hjson.parse(fs.readFileSync('./config.hjson'))
-let config = JSON.parse(fs.readFileSync('./config.hjson'))
-console.log('config', config)
+let config = Hjson.parse(fs.readFileSync('./config.hjson', 'utf8'))
 
+rethinkdb
+  .connect({db: 'cointhink'})
+  .then(function(conn){
+    db.tableList(conn)
 
-rethinkdb.connect({db: 'cointhink'})
-.then(function(conn){
-  db.tableList()
-
-  websock.listen(config.websocket.listen_port, function(socket) {
-    do_connect(socket, conn)
+    websock.listen(config.websocket.listen_port, function(socket) {
+      do_connect(socket, conn)
+    })
+  }, function(err) {
+    console.log('no rethinkdb available')
+    console.log(err.message)
   })
-
-})
 
 
 function do_connect(socket, db) {
-  console.log('websocket open')
+  console.log('websocket connected from ', socket.remoteAddress)
 
   socket.on('message', function(msg) {
     try {
