@@ -1,10 +1,15 @@
 'use strict'
+// system
 let fs = require('fs')
 
+// npm
 let websock = require('websock')
 let Hjson= require('hjson')
 let rethinkdb = require('rethinkdb')
 let moment = require('moment')
+
+// local
+let db = require('./lib/db')
 
 //var config = Hjson.parse(fs.readFileSync('./config.hjson'))
 let config = JSON.parse(fs.readFileSync('./config.hjson'))
@@ -13,12 +18,7 @@ console.log('config', config)
 
 rethinkdb.connect({db: 'cointhink'})
 .then(function(conn){
-  rethinkdb
-  .tableList()
-  .run(conn)
-  .then(function(list){
-    console.log(list)
-  })
+  db.tableList()
 
   websock.listen(config.websocket.listen_port, function(socket) {
     do_connect(socket, conn)
