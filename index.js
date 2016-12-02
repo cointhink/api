@@ -1,6 +1,7 @@
 'use strict'
 // system
 let fs = require('fs')
+let http = require('http')
 
 // npm
 let websock = require('websock')
@@ -15,29 +16,42 @@ let config = Hjson.parse(fs.readFileSync('./config.hjson', 'utf8'))
 
 rethinkdb
   .connect({db: 'cointhink'})
-  .then(function(conn){
-    db.tableList(conn)
-
-    websock.listen(config.websocket.listen_port, function(socket) {
-      do_connect(socket, conn)
+  .then(
+    function(conn) {
+      db.tableList(conn)
+      return conn
+    }, function(err) {
+      console.log('no rethinkdb available')
+      console.log(err)
     })
-  }, function(err) {
-    console.log('no rethinkdb available')
-    console.log(err.message)
-  })
+  .then(
+    function(conn) {
+      console.log('listen websocket :'+config.websocket.listen_port)
+      websock.listen(config.websocket.listen_port, function(socket) {
+        console.log('websocket connected from ', socket.remoteAddress)
+        socket.on('message', (msg) => {
+            ddispatch(msg, conn)
+              .then((out) => {console.log('->', out); socket.send(out) } )
+          })
+        socket.on('close', () => console.log('websocket close') )
+      })
+
+      http.createServer(function(request, response) {
+        console.log('http connected from')
+        ddispatch(request.body, conn)
+      })
+    })
 
 
-function do_connect(socket, db) {
-  console.log('websocket connected from ', socket.remoteAddress)
+function ddispatch(msg, conn) {
 
-  socket.on('message', function(msg) {
-    try {
-      var rpc = JSON.parse(msg)
-      console.log('<-ws', JSON.stringify(rpc))
-      dispatch(rpc)
-    } catch (e){
-      console.log('<-bad', msg)
-    }
+  try {
+    var rpc = JSON.parse(msg)
+    console.log('<-ws', JSON.stringify(rpc))
+    return dispatch(rpc)
+  } catch (e){
+    console.log('<-bad', msg)
+  }
 
     function dispatch(rpc) {
       if (rpc.method == "orderbook") {
@@ -46,38 +60,39 @@ function do_connect(socket, db) {
         let quote = rpc.params.quote.toUpperCase()
         let hours = parseFloat(rpc.params.hours)
 
-        sendBooks(base, quote, 1000*60*60*hours)
+        return sendBooks(base, quote, 1000*60*60*hours)
 
         function sendBooks(base, quote, duration) {
           let early = [base, quote, new Date(now-duration)]
           let late = [base, quote, now]
-          rethinkdb
-          .table('orderbooks')
-          .orderBy({index: rethinkdb.desc('base-quote-date')})
-          .between(early, late)
-          .run(db)
-          .then(function(cursor){
-            cursor
-            .each(function(err, book){
-              book.asks = [ book.asks[0] ]
-              book.bids = [ book.bids[0] ]
-              obsend('orderbook', book)
-              console.log('orderbook', book.exchange, book.market.base, book.market.quote, book.asks, book.bids)
+          return rethinkdb
+            .table('orderbooks')
+            .orderBy({index: rethinkdb.desc('base-quote-date')})
+            .between(early, late)
+            .run(conn)
+            .then(function(cursor){
+              cursor
+              .each(function(err, book){
+                book.asks = [ book.asks[0] ]
+                book.bids = [ book.bids[0] ]
+                console.log('orderbook', book.exchange, book.market.base, book.market.quote,
+                                         book.asks, book.bids)
+                return obsend('orderbook', book)
+              })
             })
-          })
         }
       }
 
       if (rpc.method == "exchanges") {
         return rethinkdb
         .table('exchanges')
-        .run(db)
+        .run(conn)
         .then(function(cursor){
           return cursor
           .each(function(err,exchange){
-            console.log('exchange', exchange.id)
+            console.log('exchange lookup:', exchange.id)
             return lastOrderbook(exchange)
-              .run(db)
+              .run(conn)
               .then(function(cursor){
                 return cursor
                   .toArray()
@@ -90,7 +105,7 @@ function do_connect(socket, db) {
                       return marketCluster(exchange,
                                            moment(lastDate).subtract(45, 'seconds').toDate(),
                                            new Date())
-                        .run(db)
+                        .run(conn)
                         .then(function(cursor){
                           return cursor
                             .toArray()
@@ -107,10 +122,10 @@ function do_connect(socket, db) {
                     }
                 })
               })
-              .then(function(exchanges){
-                obsend('exchange', exchanges)
+              .then(function(exchange){
+                console.log('exchange result:', exchange)
+                return obsend('exchange', exchange)
               })
-
           })
         })
       }
@@ -130,14 +145,7 @@ function do_connect(socket, db) {
 
       function obsend(type, object) {
         let obj = { type: type, object: object}
-        //console.log(rpc.method, rpc.params, '->', JSON.stringify(obj, null, 2))
-        socket.send(JSON.stringify(obj))
+        return JSON.stringify(obj, null, 2)
       }
     }
-  })
-
-  socket.on('close', function() {
-    console.log('websocket close')
-  })
 }
-
