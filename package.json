@@ -3,7 +3,8 @@
   "dependencies": {
     "hjson": "^1.8.4",
     "moment": "^2.14.1",
-    "rethinkdb": "^2.3.2",
+    "pg": "^6.1.0",
+    "pg-promise": "^5.4.3",
     "websock": "^0.3.19"
   }
 }

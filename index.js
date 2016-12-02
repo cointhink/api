@@ -6,45 +6,34 @@ let http = require('http')
 // npm
 let websock = require('websock')
 let Hjson= require('hjson')
-let rethinkdb = require('rethinkdb')
 let moment = require('moment')
 
 // local
 let db = require('./lib/db')
-
 let config = Hjson.parse(fs.readFileSync('./config.hjson', 'utf8'))
 
-rethinkdb
-  .connect({db: 'cointhink'})
-  .then(
-    function(conn) {
-      db.tableList(conn)
-      return conn
-    }, function(err) {
-      console.log('no rethinkdb available')
-      console.log(err)
-    })
-  .then(
-    function(conn) {
-      console.log('listen websocket :'+config.websocket.listen_port)
-      websock.listen(config.websocket.listen_port, function(socket) {
-        console.log('websocket connected from ', socket.remoteAddress)
-        socket.on('message', (msg) => {
-            ddispatch(msg, conn)
-              .then((out) => {console.log('->', out); socket.send(out) } )
-          })
-        socket.on('close', () => console.log('websocket close') )
-      })
+db.setup(config)
+mainloop()
 
-      http.createServer(function(request, response) {
-        console.log('http connected from')
-        ddispatch(request.body, conn)
+function mainloop() {
+  console.log('listen websocket :'+config.websocket.listen_port)
+  websock.listen(config.websocket.listen_port, function(socket) {
+    console.log('websocket connected from ', socket.remoteAddress)
+    socket.on('message', (msg) => {
+        ddispatch(msg, conn)
+          .then((out) => {console.log('->', out); socket.send(out) } )
       })
-    })
+    socket.on('close', () => console.log('websocket close') )
+  })
+
+  http.createServer(function(request, response) {
+    console.log('http connected from')
+    ddispatch(request.body, conn)
+  })
+}
 
 
 function ddispatch(msg, conn) {
-
   try {
     var rpc = JSON.parse(msg)
     console.log('<-ws', JSON.stringify(rpc))
@@ -60,9 +49,9 @@ function ddispatch(msg, conn) {
         let quote = rpc.params.quote.toUpperCase()
         let hours = parseFloat(rpc.params.hours)
 
-        return sendBooks(base, quote, 1000*60*60*hours)
+        orderbooks(base, quote, 1000*60*60*hours, (book) => obsend('orderbook', book))
 
-        function sendBooks(base, quote, duration) {
+        function sendBooks(base, quote, duration, cb) {
           let early = [base, quote, new Date(now-duration)]
           let late = [base, quote, now]
           return rethinkdb
@@ -77,7 +66,7 @@ function ddispatch(msg, conn) {
                 book.bids = [ book.bids[0] ]
                 console.log('orderbook', book.exchange, book.market.base, book.market.quote,
                                          book.asks, book.bids)
-                return obsend('orderbook', book)
+                cb(book)
               })
             })
         }
