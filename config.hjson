@@ -1,3 +1,7 @@
-{ 
-  "websocket": { "listen_port": 2050 } 
+{
+  websocket: { "listen_port": 2050 }
+  cockroach: { database: cointhink
+               user: root
+               password: root
+               port: 26257 }
 }

@@ -12,7 +12,7 @@ let moment = require('moment')
 let db = require('./lib/db')
 let config = Hjson.parse(fs.readFileSync('./config.hjson', 'utf8'))
 
-db.setup(config)
+db.setup(config.cockroach)
 mainloop()
 
 function mainloop() {
@@ -45,36 +45,20 @@ function ddispatch(msg) {
   }
 
     function dispatch(rpc) {
+      console.log('method:', rpc.method)
       if (rpc.method == "orderbook") {
         let now = new Date()
         let base = rpc.params.base.toUpperCase()
         let quote = rpc.params.quote.toUpperCase()
         let hours = parseFloat(rpc.params.hours)
 
-        orderbooks(base, quote, 1000*60*60*hours, (book) => obsend('orderbook', book))
-
-        function sendBooks(base, quote, duration, cb) {
-          let early = [base, quote, new Date(now-duration)]
-          let late = [base, quote, now]
-          return rethinkdb
-            .table('orderbooks')
-            .orderBy({index: rethinkdb.desc('base-quote-date')})
-            .between(early, late)
-            .run(conn)
-            .then(function(cursor){
-              cursor
-              .each(function(err, book){
-                book.asks = [ book.asks[0] ]
-                book.bids = [ book.bids[0] ]
-                console.log('orderbook', book.exchange, book.market.base, book.market.quote,
-                                         book.asks, book.bids)
-                cb(book)
-              })
-            })
-        }
-      } else
-      if (rpc.method == "exchanges") {
-        return rethinkdb
+        return db
+          .orderbooks(base, quote, new Date(), 1000*60*60*hours)
+          .then(books => books.forEach(book => obsend('orderbook', book)))
+          .catch(x=>console.log('ob err', x))
+      } else if (rpc.method == "exchanges") {
+        return Promise.resolve([])
+        rethinkdb
         .table('exchanges')
         .run(conn)
         .then(function(cursor){
@@ -137,7 +121,9 @@ function ddispatch(msg) {
 
       function obsend(type, object) {
         let obj = { type: type, object: object}
-        return JSON.stringify(obj, null, 2)
+        let json = JSON.stringify(obj, null, 2)
+        console.log('obsend', json)
+        return json
       }
     }
 }
