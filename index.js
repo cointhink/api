@@ -20,8 +20,9 @@ function mainloop() {
   websock.listen(config.websocket.listen_port, function(socket) {
     console.log('websocket connected from ', socket.remoteAddress)
     socket.on('message', (msg) => {
-        ddispatch(msg, conn)
-          .then((out) => {console.log('->', out); socket.send(out) } )
+        ddispatch(msg)
+          .then((out) => {console.log('->', out); socket.send(out) },
+                (err) => {console.log('->', err)} )
       })
     socket.on('close', () => console.log('websocket close') )
   })
@@ -33,13 +34,14 @@ function mainloop() {
 }
 
 
-function ddispatch(msg, conn) {
+function ddispatch(msg) {
   try {
     var rpc = JSON.parse(msg)
     console.log('<-ws', JSON.stringify(rpc))
     return dispatch(rpc)
   } catch (e){
     console.log('<-bad', msg)
+    return Promise.resolve({err: e})
   }
 
     function dispatch(rpc) {
@@ -70,8 +72,7 @@ function ddispatch(msg, conn) {
               })
             })
         }
-      }
-
+      } else
       if (rpc.method == "exchanges") {
         return rethinkdb
         .table('exchanges')
@@ -117,6 +118,8 @@ function ddispatch(msg, conn) {
               })
           })
         })
+      } else {
+        return Promise.resolve({err: "unknown command"})
       }
 
       function lastOrderbook(exchange) {
