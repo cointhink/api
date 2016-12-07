@@ -21,8 +21,6 @@ function mainloop() {
     console.log('websocket connected from ', socket.remoteAddress)
     socket.on('message', (msg) => {
         ddispatch(msg)
-          .then((out) => {console.log('->', out); socket.send(out) },
-                (err) => {console.log('->', err)} )
       })
     socket.on('close', () => console.log('websocket close') )
   })
