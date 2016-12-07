@@ -21,6 +21,7 @@ function mainloop() {
     console.log('websocket connected from ', socket.remoteAddress)
     socket.on('message', (msg) => {
         ddispatch(msg)
+          .then(answers => answers.forEach(answer => socket.send(answer)))
       })
     socket.on('close', () => console.log('websocket close') )
   })
@@ -52,52 +53,27 @@ function ddispatch(msg) {
 
         return db
           .orderbooks(base, quote, new Date(), 1000*60*60*hours)
-          .then(books => books.forEach(book => obsend('orderbook', book)))
+          .then(books => books.map(book => obsend('orderbook', book)))
           .catch(x=>console.log('ob err', x))
       } else if (rpc.method == "exchanges") {
-        return Promise.resolve([])
-        rethinkdb
-        .table('exchanges')
-        .run(conn)
-        .then(function(cursor){
-          return cursor
-          .each(function(err,exchange){
-            console.log('exchange lookup:', exchange.id)
-            return lastOrderbook(exchange)
-              .run(conn)
-              .then(function(cursor){
-                return cursor
-                  .toArray()
-                  .then(function(lastbooks){
-                    let stat = {id: exchange.id, markets: [] }
-                    if (lastbooks.length > 0) {
-                      let lastDate = lastbooks[0].date
-                      stat.date = lastDate
-                      console.log('lastDate', exchange.id, lastDate)
-                      return marketCluster(exchange,
-                                           moment(lastDate).subtract(45, 'seconds').toDate(),
-                                           new Date())
-                        .run(conn)
-                        .then(function(cursor){
-                          return cursor
-                            .toArray()
-                            .then(function(lastbooks){
-                              console.log(exchange.id, 'books', lastbooks.length)
-                              lastbooks.forEach(function(book){
-                                stat.markets.push(book.market)
-                              })
-                              return stat
-                            })
-                        })
-                    } else {
-                      return stat
-                    }
-                })
-              })
-              .then(function(exchange){
-                console.log('exchange result:', exchange)
+        return db.exchanges()
+          .then(exchanges => {
+            return exchanges.map(exchange => {
+              console.log(exchange)
+              //let lastbooks = lastOrderbook(exchange)
+                    // let stat = {id: exchange.id, markets: [] }
+                    // if (lastbooks.length > 0) {
+                    //   let lastDate = lastbooks[0].date
+                    //   stat.date = lastDate
+                    //   console.log('lastDate', exchange.id, lastDate)
+                    //   return marketCluster(exchange,
+                    //                        moment(lastDate).subtract(45, 'seconds').toDate(),
+                    //                        new Date())
+                    //           console.log(exchange.id, 'books', lastbooks.length)
+                    //           lastbooks.forEach(function(book){
+                    //             stat.markets.push(book.market)
+                    //           })
                 return obsend('exchange', exchange)
-              })
           })
         })
       } else {
@@ -120,7 +96,6 @@ function ddispatch(msg) {
       function obsend(type, object) {
         let obj = { type: type, object: object}
         let json = JSON.stringify(obj, null, 2)
-        console.log('obsend', json)
         return json
       }
     }
