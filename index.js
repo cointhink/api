@@ -59,7 +59,6 @@ function ddispatch(msg) {
         return db.exchanges()
           .then(exchanges => {
             return exchanges.map(exchange => {
-              console.log(exchange)
               //let lastbooks = lastOrderbook(exchange)
                     // let stat = {id: exchange.id, markets: [] }
                     // if (lastbooks.length > 0) {
