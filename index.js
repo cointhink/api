@@ -18,10 +18,14 @@ mainloop()
 function mainloop() {
   console.log('listen websocket :'+config.websocket.listen_port)
   websock.listen(config.websocket.listen_port, function(socket) {
-    console.log('websocket connected from ', socket.remoteAddress)
+    console.log('websocket connected from ', socket.address)
     socket.on('message', (msg) => {
-        ddispatch(msg)
-          .then(answers => answers.forEach(answer => socket.send(answer)))
+        var rpc = JSON.parse(msg)
+        ddispatch(rpc)
+          .then(answers => {
+            console.log('->', rpc.method, answers.length, 'answers')
+            answers.forEach(answer => socket.send(answer))
+          })
       })
     socket.on('close', () => console.log('websocket close') )
   })
@@ -33,9 +37,8 @@ function mainloop() {
 }
 
 
-function ddispatch(msg) {
+function ddispatch(rpc) {
   try {
-    var rpc = JSON.parse(msg)
     console.log('<-ws', JSON.stringify(rpc))
     return dispatch(rpc)
   } catch (e){
